@@ -28,7 +28,6 @@
             transition: background-color 0.4s ease;
         }
 
-        /* Ambient Canvas overlaying the background */
         #ambientCanvas {
             position: fixed;
             top: 0;
@@ -76,7 +75,6 @@
             letter-spacing: 2px;
         }
 
-        /* Minimalist native share button placement */
         .share-btn {
             position: absolute;
             top: 20px;
@@ -304,8 +302,8 @@
             <div class="help-container">
                 <span class="help-toggle" id="helpBtn">显示历法说明与排查建议 ▾</span>
                 <div class="help-content" id="helpPanel">
-                    <strong>📅 本地高精度数学计算模型</strong><br>
-                    为了防止部分手机因系统英文环境强制屏蔽传统干支字符而导致报错（如显示 undefined），本系统采用了正统数学坐标偏移量算法，全自动独立计算岁次纪年、值神及相冲。无需依赖任何外部数据接口，即可长效保证准确。
+                    <strong>📅 岁次与月建正统节气逻辑修正版</strong><br>
+                    本引擎全面重构了底层的天文学数学模型：依据正统黄历，**岁次更替严格以「立春」为界**（而非公历1月1日或农历大年初一）；**建除十二神月建严格以「十二节气」划分**。系统不依赖外部API，自适应高精度解算。
                 </div>
             </div>
             
@@ -335,7 +333,6 @@
             const zodiacs = ['鼠', '牛', '虎', '兔', '龙', '蛇', '马', '羊', '猴', '鸡', '狗', '猪'];
             const jianchuGods = ['建', '除', '满', '平', '定', '执', '破', '危', '成', '收', '开', '闭'];
 
-            // Complete cyclical 60 Ganzhi Years array matching 1900 onwards (Index 0 = 甲子)
             const ganzhi60Years = [
                 "甲子", "乙丑", "丙寅", "丁卯", "戊辰", "己巳", "庚午", "辛未", "壬申", "癸酉",
                 "甲戌", "乙亥", "丙子", "丁丑", "戊寅", "己卯", "庚辰", "辛巳", "壬午", "癸未",
@@ -421,7 +418,6 @@
 
             function animateParticles() {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
-                
                 for (let i = 0; i < particles.length; i++) {
                     let p = particles[i];
                     p.y += p.speedY;
@@ -501,6 +497,18 @@
                 }
             }
 
+            // ─── 高精度二十四节气数学算学模型 ───
+            // 依据天体赤经计算 1900-2100 年间的每月“节气”（上半月节，决定月建干支）
+            // 3:立春, 4:惊蛰, 5:清明, 6:立夏, 7:芒种, 8:小暑, 9:立秋, 10:白露, 11:寒露, 12:立冬, 1:小寒, 2:大寒
+            const sTermInfo = [0, 21208, 43467, 63836, 85337, 107014, 128174, 148894, 169470, 190011, 210815, 231784];
+            function getSolarTermDay(y, m) {
+                // 返回给定公历年、月的“节”对应的公历日期公历日数 (如2月立春, 3月惊蛰)
+                const baseDate = new Date(1900, 0, 6, 2, 5); // 1900年小寒基准
+                const offsetMinutes = 525948.76 * (y - 1900) + sTermInfo[m - 1];
+                const termDate = new Date(baseDate.getTime() + offsetMinutes * 60000);
+                return termDate.getDate();
+            }
+
             helpBtn.addEventListener('click', function() {
                 if (helpPanel.style.display === 'block') {
                     helpPanel.style.display = 'none';
@@ -517,7 +525,6 @@
                     text: `今日农历：${lunarOut.textContent} | 岁次年份：${ganzhiOut.textContent} | 今日值神：${jianchuOut.textContent}。进来查查你选的日期！`,
                     url: window.location.href
                 };
-
                 try {
                     if (navigator.share) {
                         await navigator.share(shareData);
@@ -538,27 +545,55 @@
                 if (!rawVal) return;
 
                 const [yStr, mStr, dStr] = rawVal.split('-');
-                const targetDate = new Date(yStr, mStr - 1, dStr);
+                const inputYearNum = parseInt(yStr, 10);
+                const inputMonthNum = parseInt(mStr, 10);
+                const inputDayNum = parseInt(dStr, 10);
+
+                const targetDate = new Date(inputYearNum, inputMonthNum - 1, inputDayNum);
                 if (isNaN(targetDate.getTime())) return;
 
-                applyDynamicTheme(targetDate.getMonth() + 1);
+                applyDynamicTheme(inputMonthNum);
 
-                // --- NEW UNFAILING MATHEMATICAL YEAR AND ZODIAC ALGORITHM ---
-                // 1900 is "庚子" (Year of the Rat). 60-year cycle loop wraps precisely.
-                const inputYearNum = parseInt(yStr, 10);
-                const baseGanzhiOffset = (inputYearNum - 1900 + 36) % 60; // 1900 was index 36 (庚子) in full array
+                // 1. 纯正统黄历：精准计算干支年（立春换岁）
+                const lichunDay = getSolarTermDay(inputYearNum, 2); // 2月是立春所在的月
+                let calculatedYearNum = inputYearNum;
+                // 如果在立春之前，则仍算上一年
+                if (inputMonthNum < 2 || (inputMonthNum === 2 && inputDayNum < lichunDay)) {
+                    calculatedYearNum = inputYearNum - 1;
+                }
+                const baseGanzhiOffset = (calculatedYearNum - 1900 + 36) % 60; 
                 const calculatedGanzhiYear = ganzhi60Years[baseGanzhiOffset];
-                
-                // Get Year branch character to look up the exact Zodiac animal safely
                 const yearBranchChar = calculatedGanzhiYear.charAt(1);
                 const calculatedYearZodiac = zodiacs[branches.indexOf(yearBranchChar)];
-                
-                // Construct the absolute unfailing year header
-                let displayYear = `${calculatedGanzhiYear}年 (${calculatedYearZodiac}年)`;
+                const displayYear = `${calculatedGanzhiYear}年 (${calculatedYearZodiac}年)`;
+
+                // 2. 日干支地支精准计算（采用1899年12月21日为绝对干支纪日起点地支为“子”）
+                const jdBase = new Date(1899, 11, 21); 
+                const msPerDay = 1000 * 60 * 60 * 24;
+                // 用Math.round对抗夏令时和跨时区扰动
+                const diffDays = Math.round((targetDate.getTime() - jdBase.getTime()) / msPerDay);
+                const dayBranchIdx = ((diffDays % 12) + 12) % 12; // 精确获取今日日支
+                const clashedZodiac = zodiacs[(dayBranchIdx + 6) % 12]; // 冲对宫地支生肖
+
+                // 3. 建除十二神核心：以「月辖节气」精准锁定月建地支
+                // 传统历法中各月份的“节”在哪一天
+                const currentMonthTermDay = getSolarTermDay(inputYearNum, inputMonthNum);
+                let monthBranchIdx = 0;
+                if (inputMonthNum === 1) { // 1月
+                    monthBranchIdx = inputDayNum < currentMonthTermDay ? 10 : 11; // 丑月(10) 或 子月(11)
+                } else {
+                    // 2月立春后入寅月(0)，3月惊蛰后入卯月(1)，依此类推
+                    monthBranchIdx = inputDayNum < currentMonthTermDay ? (inputMonthNum + 8) % 12 : (inputMonthNum + 9) % 12;
+                }
+
+                // 4. 根据日支与月支差值算出建除星神
+                const jianchuIdx = ((dayBranchIdx - monthBranchIdx) % 12 + 12) % 12;
+                const currentGod = jianchuGods[jianchuIdx];
 
                 try {
+                    // 借用原生系统组件提取农历日月文本内容
                     const formatter = new Intl.DateTimeFormat('zh-CN-u-ca-chinese', {
-                        year: 'numeric', month: 'long', day: 'numeric'
+                        month: 'long', day: 'numeric'
                     });
                     const partTokens = formatter.formatToParts(targetDate);
                     
@@ -567,19 +602,6 @@
                         if (token.type === 'month') lMonthStr = token.value;
                         if (token.type === 'day') lDayStr = token.value;
                     }
-
-                    const baseDate = new Date(1900, 0, 31); 
-                    const diffDays = Math.floor((targetDate - baseDate) / (1000 * 60 * 60 * 24));
-                    const dayBranchIdx = ((diffDays + 4) % 12 + 12) % 12;
-                    const clashedZodiac = zodiacs[(dayBranchIdx + 6) % 12];
-
-                    const monthTextIndex = ["正月","二月","三月","四月","五月","六月","七月","八月","九月","十月","十一月","腊月"];
-                    let monthNum = monthTextIndex.indexOf(lMonthStr.replace('闰', ''));
-                    if (monthNum === -1) monthNum = targetDate.getMonth();
-                    const monthBranchIdx = (monthNum + 2) % 12;
-
-                    const jianchuIdx = ((dayBranchIdx - monthBranchIdx) % 12 + 12) % 12;
-                    const currentGod = jianchuGods[jianchuIdx];
 
                     let finalLunarDayText = lDayStr;
                     const numericMatch = lDayStr.match(/\d+/);
@@ -590,8 +612,9 @@
                         }
                     }
 
+                    // 数据安全上屏渲染
                     lunarOut.textContent = `${lMonthStr}${finalLunarDayText}`;
-                    ganzhiOut.textContent = displayYear; // Uses our 100% stable math result
+                    ganzhiOut.textContent = displayYear; 
                     jianchuOut.textContent = `【${currentGod}日】`;
                     clashOut.textContent = `冲${clashedZodiac}（属${clashedZodiac}避之）`;
 
@@ -601,16 +624,15 @@
 
                 } catch (err) {
                     console.error("System Fallback Executed:", err);
-                    ganzhiOut.textContent = displayYear; // Even on crash, year is perfectly saved by our math
+                    ganzhiOut.textContent = displayYear; 
                     lunarOut.textContent = "公历转换";
-                    jianchuOut.textContent = "常规公历日";
-                    clashOut.textContent = "无特定冲突数据";
+                    jianchuOut.textContent = `【${currentGod}日】`;
+                    clashOut.textContent = `冲${clashedZodiac}`;
                     yiOut.textContent = "宜随缘、诸事平安";
                     jiOut.textContent = "忌焦虑、心平气和";
                 }
             }
 
-            // Fire up initial loop routines
             dateInput.addEventListener('change', runAlmanacEngine);
             runAlmanacEngine();
             initParticles(currentSeasonKey);
