@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>简约万年历</title>
+    <style>
+        :root {
+            --theme-primary: #a92020;
+            --theme-bg-body: #fbf7f7;
+            --theme-border: #eedad2;
+            --theme-bg-input: #fdfbfa;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 16px;
+            box-sizing: border-box;
+            background-color: var(--theme-bg-body);
+            color: #2c2c2c;
+            position: relative;
+            overflow-x: hidden;
+            transition: background-color 0.4s ease;
+        }
+
+        /* Ambient Canvas overlaying the background */
+        #ambientCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        .calendar-card {
+            background-color: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border-radius: 24px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.05);
+            border: 1px solid var(--theme-border);
+            width: 100%;
+            max-width: 400px;
+            overflow: hidden;
+            transition: border-color 0.4s ease;
+            z-index: 10;
+        }
+
+        .calendar-header {
+            background-color: var(--theme-primary);
+            color: #ffffff;
+            text-align: center;
+            padding: 28px 20px;
+            position: relative;
+            transition: background-color 0.4s ease;
+        }
+
+        .calendar-header h1 {
+            margin: 0;
+            font-size: 24px;
+            letter-spacing: 6px;
+            font-weight: 700;
+        }
+
+        .calendar-header p {
+            margin: 6px 0 0 0;
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.8);
+            letter-spacing: 2px;
+        }
+
+        /* Minimalist native share button placement */
+        .share-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .share-btn:hover {
+            background: rgba(255, 255, 255, 0.35);
+        }
+
+        .calendar-body {
+            padding: 24px;
+        }
+
+        .input-group {
+            margin-bottom: 24px;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #666666;
+            margin-bottom: 8px;
+        }
+
+        input[type="date"] {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid var(--theme-border);
+            border-radius: 12px;
+            font-size: 16px;
+            background-color: var(--theme-bg-input);
+            color: #2c2c2c;
+            outline: none;
+            box-sizing: border-box;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        input[type="date"]:focus {
+            border-color: var(--theme-primary);
+            background-color: #ffffff;
+        }
+
+        .info-board {
+            background-color: var(--theme-bg-input);
+            border: 1px solid var(--theme-border);
+            border-radius: 16px;
+            padding: 4px 18px;
+            margin-bottom: 20px;
+            transition: all 0.4s ease;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 0;
+            border-bottom: 1px dashed var(--theme-border);
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            font-size: 14px;
+            color: #666666;
+        }
+
+        .info-value {
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        .info-value.lunar-main {
+            color: var(--theme-primary);
+            font-size: 22px;
+            transition: color 0.4s ease;
+        }
+
+        .clash-text {
+            color: #c62828;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .almanac-panel {
+            border: 1px solid var(--theme-border);
+            border-radius: 16px;
+            overflow: hidden;
+            transition: border-color 0.4s ease;
+            margin-bottom: 15px;
+        }
+
+        .almanac-block {
+            display: flex;
+            align-items: stretch;
+        }
+
+        .almanac-block.yi-block { 
+            border-bottom: 1px solid var(--theme-border); 
+        }
+
+        .almanac-tag {
+            width: 54px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 16px;
+            color: #ffffff;
+        }
+
+        .yi-block .almanac-tag { background-color: #2e7d32; }
+        .ji-block .almanac-tag { background-color: #c62828; }
+
+        .almanac-text {
+            flex: 1;
+            padding: 14px;
+            font-size: 14px;
+            font-weight: 500;
+            line-height: 1.5;
+            background-color: #ffffff;
+        }
+
+        .yi-block .almanac-text { color: #2e7d32; }
+        .ji-block .almanac-text { color: #c62828; }
+
+        .help-container {
+            margin-top: 15px;
+            border-top: 1px dashed var(--theme-border);
+            padding-top: 12px;
+        }
+
+        .help-toggle {
+            display: block;
+            text-align: center;
+            font-size: 12px;
+            color: var(--theme-primary);
+            cursor: pointer;
+            font-weight: 600;
+            user-select: none;
+            text-decoration: underline;
+        }
+
+        .help-content {
+            display: none;
+            background-color: rgba(250, 250, 250, 0.9);
+            border: 1px solid #eee;
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 8px;
+            font-size: 11px;
+            color: #555;
+            line-height: 1.6;
+        }
+
+        .system-footer {
+            text-align: center;
+            font-size: 11px;
+            color: #999999;
+            margin-top: 16px;
+            letter-spacing: 0.5px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Background Canvas for Interactive Seasonal Elements -->
+    <canvas id="ambientCanvas"></canvas>
+
+    <div class="calendar-card">
+        <div class="calendar-header">
+            <button class="share-btn" id="shareBtn">分享 ↗</button>
+            <h1 id="bannerTitle">万年历</h1>
+            <p id="bannerSub">LUNISOLAR CALENDAR</p>
+        </div>
+        
+        <div class="calendar-body">
+            <div class="input-group">
+                <label for="dateEngineInput">选择公历日期</label>
+                <input type="date" id="dateEngineInput">
+            </div>
+
+            <div class="info-board">
+                <div class="info-row">
+                    <span class="info-label">农历日期</span>
+                    <span class="info-value lunar-main" id="lunarOut">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">岁次年份</span>
+                    <span class="info-value" id="ganzhiOut">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">今日值神</span>
+                    <span class="info-value" id="jianchuOut">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">每日相冲</span>
+                    <span class="info-value clash-text" id="clashOut">-</span>
+                </div>
+            </div>
+
+            <div class="almanac-panel">
+                <div class="almanac-block yi-block">
+                    <div class="almanac-tag">宜</div>
+                    <div class="almanac-text" id="yiOut">-</div>
+                </div>
+                <div class="almanac-block ji-block">
+                    <div class="almanac-tag">忌</div>
+                    <div class="almanac-text" id="jiOut">-</div>
+                </div>
+            </div>
+
+            <div class="help-container">
+                <span class="help-toggle" id="helpBtn">显示常见问题与排查说明 ▾</span>
+                <div class="help-content" id="helpPanel">
+                    <strong>⚠️ 为什么显示数字年份（如 2026年）？</strong><br>
+                    本程序使用您设备的本地系统内核进行历法推算。如果您的系统语言设为英文，系统可能会屏蔽传统干支文字（如丙午年、马年）。<br><br>
+                    <strong>🛠️ 修复方法：</strong><br>
+                    打开您的手机/电脑<b>系统设置</b> ➔ 进入<b>语言与地区 (Language & Region)</b> ➔ 将<b>简体中文 (Chinese)</b>添加为您的首选语言之一。添加完成后刷新本页面即可显示。
+                </div>
+            </div>
+            
+            <div class="system-footer">
+                原生历法算学引擎 · 智能容错保护
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            const dateInput = document.getElementById('dateEngineInput');
+            const lunarOut = document.getElementById('lunarOut');
+            const ganzhiOut = document.getElementById('ganzhiOut');
+            const jianchuOut = document.getElementById('jianchuOut');
+            const clashOut = document.getElementById('clashOut');
+            const yiOut = document.getElementById('yiOut');
+            const jiOut = document.getElementById('jiOut');
+            const bannerSub = document.getElementById('bannerSub');
+            const helpBtn = document.getElementById('helpBtn');
+            const helpPanel = document.getElementById('helpPanel');
+            const shareBtn = document.getElementById('shareBtn');
+            const canvas = document.getElementById('ambientCanvas');
+            const ctx = canvas.getContext('2d');
+
+            const branches = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
+            const zodiacs = ['鼠', '牛', '虎', '兔', '龙', '蛇', '马', '羊', '猴', '鸡', '狗', '猪'];
+            const jianchuGods = ['建', '除', '满', '平', '定', '执', '破', '危', '成', '收', '开', '闭'];
+
+            const traditionalDaysMap = [
+                "", "初一", "初二", "初三", "初四", "初五", "初六", "初七", "初八", "初九", "初十",
+                "十一", "十二", "十三", "十四", "十五", "十六", "十七", "十八", "十九", "二十",
+                "廿一", "廿二", "廿三", "廿四", "廿五", "廿六", "廿七", "廿八", "廿九", "三十"
+            ];
+
+            const jianchuRules = {
+                '建': { yi: '修造、出行、开市、入学', ji: '动土、开仓、筑堤' },
+                '除': { yi: '沐浴、清洁、解除、求医', ji: '嫁娶、搬家、开市' },
+                '满': { yi: '开市、修造、交易、祭祀', ji: '栽种、动土、作灶' },
+                '平': { yi: '祭祀、修路、填平、扫舍', ji: '嫁娶、搬家、词讼' },
+                '定': { yi: '嫁娶、开市、合同、祈福', ji: '词讼、出行、搬家' },
+                '执': { yi: '捕捉、打猎、修造、祭祀', ji: '嫁娶、开市、开仓' },
+                '破': { yi: '求医、拆卸、坏垣、解除', ji: '诸事不宜、嫁娶、开市' },
+                '危': { yi: '祭祀、捕捉、安床、整容', ji: '登山、涉水、出行' },
+                '成': { yi: '嫁娶、开市、入学、搬家', ji: '词讼、诉讼、动土' },
+                '收': { yi: '捕捉、纳财、收粮、收藏', ji: '开市、出行、安葬' },
+                '开': { yi: '嫁娶、出行、开市、求学', ji: '安葬、作灶、掘井' },
+                '闭': { yi: '祭祀、筑堤、补垣、安葬', ji: '开市、出行、求医' }
+            };
+
+            const seasonalThemes = {
+                spring: { key: 'spring', primary: '#38761d', bgBody: '#f3f7f2', border: '#daebd5', bgInput: '#fafcf9', label: '春意 · 落樱缤纷' },
+                summer: { key: 'summer', primary: '#a92020', bgBody: '#fbf7f7', border: '#eedad2', bgInput: '#fdfbfa', label: '夏令 · 萤火流光' },
+                autumn: { key: 'autumn', primary: '#b45f06', bgBody: '#faf6f0', border: '#ebdccb', bgInput: '#fefcf9', label: '秋收 · 枫叶飘零' },
+                winter: { key: 'winter', primary: '#3d85c6', bgBody: '#f1f5f9', border: '#cfdbe7', bgInput: '#f7fafc', label: '冬藏 · 瑞雪纷飞' }
+            };
+
+            let currentSeasonKey = 'summer';
+            let particles = [];
+
+            // Resize setup for Canvas background space
+            function resizeCanvas() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }
+            window.addEventListener('resize', resizeCanvas);
+            resizeCanvas();
+
+            // Particle object creation helper
+            function createParticle(season, initY = false) {
+                const p = {
+                    x: Math.random() * canvas.width,
+                    y: initY ? Math.random() * canvas.height : -10,
+                    size: 0, speedX: 0, speedY: 0, opacity: Math.random() * 0.5 + 0.3, angle: Math.random() * Math.PI
+                };
+
+                if (season === 'spring') { // Pink Cherry Blossoms
+                    p.size = Math.random() * 5 + 4;
+                    p.speedY = Math.random() * 1 + 1;
+                    p.speedX = Math.random() * 1 - 0.2;
+                } else if (season === 'summer') { // Glowing Fireflies
+                    p.size = Math.random() * 3 + 2;
+                    p.y = initY ? p.y : canvas.height + 10; // Float up from bottom
+                    p.speedY = -(Math.random() * 0.6 + 0.4);
+                    p.speedX = Math.random() * 0.8 - 0.4;
+                } else if (season === 'autumn') { // Golden & Red Autumn Leaves
+                    p.size = Math.random() * 8 + 6;
+                    p.speedY = Math.random() * 1.2 + 0.8;
+                    p.speedX = Math.random() * 1.5 - 0.5;
+                } else if (season === 'winter') { // White Soft Snowflakes
+                    p.size = Math.random() * 3 + 2;
+                    p.speedY = Math.random() * 1.5 + 0.5;
+                    p.speedX = Math.random() * 0.6 - 0.3;
+                    p.opacity = Math.random() * 0.6 + 0.4;
+                }
+                return p;
+            }
+
+            // Initialize Background Particle Arrays
+            function initParticles(season) {
+                particles = [];
+                for (let i = 0; i < 35; i++) {
+                    particles.push(createParticle(season, true));
+                }
+            }
+
+            // Canvas Animation Rendering Loop Loop Loop
+            function animateParticles() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                for (let i = 0; i < particles.length; i++) {
+                    let p = particles[i];
+                    p.y += p.speedY;
+                    p.x += p.speedX;
+                    p.angle += 0.01;
+
+                    ctx.save();
+                    ctx.globalAlpha = p.opacity;
+
+                    if (currentSeasonKey === 'spring') {
+                        ctx.fillStyle = '#ffb7c5'; // Sakura pink
+                        ctx.translate(p.x, p.y);
+                        ctx.rotate(p.angle);
+                        ctx.beginPath();
+                        ctx.ellipse(0, 0, p.size, p.size / 1.6, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                    } else if (currentSeasonKey === 'summer') {
+                        // Pulse opacity for glowing firefly effect
+                        p.opacity += Math.sin(p.angle * 2) * 0.02;
+                        p.opacity = Math.max(0.1, Math.min(0.9, p.opacity));
+                        ctx.globalAlpha = p.opacity;
+                        
+                        let gradient = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 2);
+                        gradient.addColorStop(0, '#d4ec31');
+                        gradient.addColorStop(1, 'rgba(212,236,49,0)');
+                        ctx.fillStyle = gradient;
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y, p.size * 2, 0, Math.PI * 2);
+                        ctx.fill();
+                    } else if (currentSeasonKey === 'autumn') {
+                        ctx.fillStyle = p.size > 10 ? '#c94c12' : '#d68a1a'; // Autumn orange/red
+                        ctx.translate(p.x, p.y);
+                        ctx.rotate(p.angle);
+                        ctx.beginPath();
+                        ctx.moveTo(0, -p.size);
+                        ctx.quadraticCurveTo(p.size / 2, 0, 0, p.size);
+                        ctx.quadraticCurveTo(-p.size / 2, 0, 0, -p.size);
+                        ctx.fill();
+                    } else if (currentSeasonKey === 'winter') {
+                        ctx.fillStyle = '#ffffff';
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                    ctx.restore();
+
+                    // Boundary resets to handle dynamic infinite loop loop loop
+                    if (currentSeasonKey === 'summer') {
+                        if (p.y < -10 || p.x < -10 || p.x > canvas.width + 10) {
+                            particles[i] = createParticle(currentSeasonKey, false);
+                        }
+                    } else {
+                        if (p.y > canvas.height + 10 || p.x < -10 || p.x > canvas.width + 10) {
+                            particles[i] = createParticle(currentSeasonKey, false);
+                        }
+                    }
+                }
+                requestAnimationFrame(animateParticles);
+            }
+
+            function applyDynamicTheme(month) {
+                let theme;
+                if (month >= 3 && month <= 5) theme = seasonalThemes.spring;
+                else if (month >= 6 && month <= 8) theme = seasonalThemes.summer;
+                else if (month >= 9 && month <= 11) theme = seasonalThemes.autumn;
+                else theme = seasonalThemes.winter;
+
+                const root = document.documentElement;
+                root.style.setProperty('--theme-primary', theme.primary);
+                root.style.setProperty('--theme-bg-body', theme.bgBody);
+                root.style.setProperty('--theme-border', theme.border);
+                root.style.setProperty('--theme-bg-input', theme.bgInput);
+                
+                bannerSub.textContent = theme.label;
+
+                // Re-initialize particles if theme changes
+                if (currentSeasonKey !== theme.key) {
+                    currentSeasonKey = theme.key;
+                    initParticles(currentSeasonKey);
+                }
+            }
+
+            helpBtn.addEventListener('click', function() {
+                if (helpPanel.style.display === 'block') {
+                    helpPanel.style.display = 'none';
+                    helpBtn.textContent = '显示常见问题与排查说明 ▾';
+                } else {
+                    helpPanel.style.display = 'block';
+                    helpBtn.textContent = '隐藏常见问题与排查说明 ▴';
+                }
+            });
+
+            // Modern Web Share API binding
+            shareBtn.addEventListener('click', async function() {
+                const shareData = {
+                    title: '今日黄历万年历',
+                    text: `今日农历：${lunarOut.textContent} | 岁次年份：${ganzhiOut.textContent} | 今日值神：${jianchuOut.textContent}。进来查查你选的日期！`,
+                    url: window.location.href
+                };
+
+                try {
+                    if (navigator.share) {
+                        await navigator.share(shareData);
+                    } else {
+                        // Clipboard copy fallback fallback for standard web views
+                        await navigator.clipboard.writeText(`${shareData.text} 链接: ${shareData.url}`);
+                        alert('今日历法信息已复制到剪贴板，快去发给朋友吧！');
+                    }
+                } catch (err) {
+                    console.log('Share canceled or failed', err);
+                }
+            });
+
+            const today = new Date();
+            dateInput.value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+            function runAlmanacEngine() {
+                const rawVal = dateInput.value;
+                if (!rawVal) return;
+
+                const [yStr, mStr, dStr] = rawVal.split('-');
+                const targetDate = new Date(yStr, mStr - 1, dStr);
+                if (isNaN(targetDate.getTime())) return;
+
+                applyDynamicTheme(targetDate.getMonth() + 1);
+
+                let displayYear = `${yStr}年`; 
+
+                try {
+                    const formatter = new Intl.DateTimeFormat('zh-CN-u-ca-chinese', {
+                        year: 'numeric', month: 'long', day: 'numeric'
+                    });
+                    const partTokens = formatter.formatToParts(targetDate);
+                    
+                    let lYearStr = '', lMonthStr = '', lDayStr = '';
+                    for (const token of partTokens) {
+                        if (token.type === 'year') lYearStr = token.value;
+                        if (token.type === 'month') lMonthStr = token.value;
+                        if (token.type === 'day') lDayStr = token.value;
+                    }
+
+                    const baseDate = new Date(1900, 0, 31); 
+                    const diffDays = Math.floor((targetDate - baseDate) / (1000 * 60 * 60 * 24));
+                    const dayBranchIdx = ((diffDays + 4) % 12 + 12) % 12;
+                    const clashedZodiac = zodiacs[(dayBranchIdx + 6) % 12];
+
+                    const monthTextIndex = ["正月","二月","三月","四月","五月","六月","七月","八月","九月","十月","十一月","腊月"];
+                    let monthNum = monthTextIndex.indexOf(lMonthStr.replace('闰', ''));
+                    if (monthNum === -1) monthNum = targetDate.getMonth();
+                    const monthBranchIdx = (monthNum + 2) % 12;
+
+                    const jianchuIdx = ((dayBranchIdx - monthBranchIdx) % 12 + 12) % 12;
+                    const currentGod = jianchuGods[jianchuIdx];
+
+                    if (lYearStr && lYearStr !== 'undefined' && typeof lYearStr === 'string') {
+                        const cleanGanzhiYear = lYearStr.replace(/\d+/g, '').replace('年', '');
+                        if (cleanGanzhiYear.length >= 2 && !cleanGanzhiYear.includes('undefined')) {
+                            const yearBranchChar = cleanGanzhiYear.charAt(1);
+                            const yearZodiac = zodiacs[branches.indexOf(yearBranchChar)];
+                            displayYear = `${cleanGanzhiYear}年 (${yearZodiac}年)`;
+                        }
+                    }
+
+                    let finalLunarDayText = lDayStr;
+                    const numericMatch = lDayStr.match(/\d+/);
+                    if (numericMatch) {
+                        const dayNum = parseInt(numericMatch[0], 10);
+                        if (dayNum >= 1 && dayNum <= 30) {
+                            finalLunarDayText = traditionalDaysMap[dayNum];
+                        }
+                    }
+
+                    lunarOut.textContent = `${lMonthStr}${finalLunarDayText}`;
+                    ganzhiOut.textContent = displayYear;
+                    jianchuOut.textContent = `【${currentGod}日】`;
+                    clashOut.textContent = `冲${clashedZodiac}（属${clashedZodiac}避之）`;
+
+                    const dayRules = jianchuRules[currentGod];
+                    yiOut.textContent = dayRules.yi;
+                    jiOut.textContent = dayRules.ji;
+
+                } catch (err) {
+                    console.error("System Fallback Executed:", err);
+                    ganzhiOut.textContent = `${yStr}年`;
+                    lunarOut.textContent = "公历转换";
+                    jianchuOut.textContent = "常规公历日";
+                    clashOut.textContent = "无特定冲突数据";
+                    yiOut.textContent = "宜随缘、诸事平安";
+                    jiOut.textContent = "忌焦虑、心平气和";
+                }
+            }
+
+            // Fire up initial loop routines
+            dateInput.addEventListener('change', runAlmanacEngine);
+            runAlmanacEngine();
+            initParticles(currentSeasonKey);
+            animateParticles();
+        })();
+    </script>
+</body>
+</html>
