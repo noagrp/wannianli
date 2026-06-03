@@ -1,1 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>万年历</title>
+    <style>
+        :root { --card-bg: rgba(20, 20, 20, 0.8); --text-gold: #d4af37; --border: #d4af37; }
+        
+        body { 
+            margin: 0; padding: 20px; font-family: 'Noto Serif SC', serif;
+            background-color: #0a0a0a;
+            min-height: 100vh; overflow-x: hidden;
+            color: var(--text-gold);
+        }
+        #particleCanvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: -1; }
 
+        .dashboard { max-width: 900px; margin: auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+        .box { background: var(--card-bg); backdrop-filter: blur(10px); border: 1px solid var(--border); padding: 15px; border-radius: 8px; box-shadow: 0 0 10px rgba(212, 175, 55, 0.2); }
+        .header { grid-column: 1 / -1; text-align: center; background: rgba(0, 0, 0, 0.9); border-bottom: 2px solid var(--border); padding: 20px; position: relative; }
+        .label { font-size: 0.75em; color: #aaa; text-transform: uppercase; display: block; margin-bottom: 4px; }
+        .val { font-weight: bold; color: #fff; display: block; }
+        .desc { font-size: 0.7em; color: #888; font-style: italic; margin-top: 5px; display: block; }
+        #music-btn { font-size: 30px; cursor: pointer; position: absolute; right: 20px; top: 20px; }
+        input { background: #000; color: var(--text-gold); border: 1px solid var(--text-gold); padding: 5px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+<canvas id="particleCanvas"></canvas>
+
+<div class="dashboard">
+    <div class="header">
+        <h2 id="main-title" style="color:var(--text-gold)">载入中...</h2>
+        <input type="datetime-local" id="timePicker" onchange="calculate()">
+        <div id="music-btn" onclick="toggleMusic()">^</div>
+        <audio id="audio" loop><source src="https://github.com/noagrp/wannianli/raw/main/furelise.mp3" type="audio/mpeg"></audio>
+    </div>
+
+    <div class="box"><span class="label">公历</span><span class="val" id="gregorian"></span><span class="desc">国际通用日期标准</span></div>
+    <div class="box"><span class="label">农历</span><span class="val" id="lunar-date"></span><span class="desc">传统阴阳合历日期</span></div>
+    <div class="box"><span class="label">宜</span><span class="val" id="yi"></span><span class="desc">今日适宜进行的活动</span></div>
+    <div class="box"><span class="label">忌</span><span class="val" id="ji"></span><span class="desc">今日应当避免的事项</span></div>
+    <div class="box"><span class="label">八字</span><span class="val" id="bazi"></span><span class="desc">出生时刻的天干地支</span></div>
+    <div class="box"><span class="label">冲煞</span><span class="val" id="chong"></span><span class="desc">今日属相相冲与方位禁忌</span></div>
+    <div class="box"><span class="label">吉神方位</span><span class="val" id="gods"></span><span class="desc">喜神与财神所在方向</span></div>
+    <div class="box"><span class="label">节气/星宿</span><span class="val" id="astro"></span><span class="desc">二十四节气与二十八星宿</span></div>
+    <div class="box"><span class="label">十二值星</span><span class="val" id="zhixing"></span><span class="desc">每日运势吉凶星值</span></div>
+    <div class="box"><span class="label">纳音/胎神</span><span class="val" id="na-yin"></span><span class="desc">五行属性与胎神所在方位</span></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lunar-javascript/1.7.4/lunar.min.js"></script>
+<script>
+    const canvas = document.getElementById('particleCanvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+    let particles = [];
+    const mouse = { x: null, y: null };
+
+    window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+    window.addEventListener('touchstart', e => { mouse.x = e.touches[0].clientX; mouse.y = e.touches[0].clientY; });
+
+    class Particle {
+        constructor() {
+            this.x = Math.random() * canvas.width; this.y = Math.random() * canvas.height;
+            this.size = Math.random() * 2 + 1;
+            this.vx = (Math.random() - 0.5) * 0.5; this.vy = (Math.random() - 0.5) * 0.5;
+        }
+        update() {
+            if (mouse.x) {
+                let dx = mouse.x - this.x; let dy = mouse.y - this.y;
+                let dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist < 200) { this.x += dx * 0.02; this.y += dy * 0.02; }
+            }
+            this.x += this.vx; this.y += this.vy;
+            if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
+            if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
+        }
+        draw() { ctx.fillStyle = 'rgba(212, 175, 55, 0.8)'; ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI*2); ctx.fill(); }
+    }
+
+    for(let i=0; i<100; i++) particles.push(new Particle());
+    function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        particles.forEach(p => { p.update(); p.draw(); });
+        requestAnimationFrame(animate);
+    }
+    animate();
+
+    function toggleMusic() { const audio = document.getElementById("audio"); audio.paused ? audio.play() : audio.pause(); }
+    const picker = document.getElementById('timePicker');
+    picker.value = new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+
+    function getShichen(hour) {
+        const names = ["子时", "丑时", "寅时", "卯时", "辰时", "巳时", "午时", "未时", "申时", "酉时", "戌时", "亥时"];
+        return names[Math.floor(((hour + 1) % 24) / 2)];
+    }
+
+    function calculate() {
+        const inputDate = new Date(picker.value);
+        const hour = inputDate.getHours();
+        const dateForLunar = (hour >= 23) ? new Date(inputDate.getTime() + 86400000) : inputDate;
+        const solar = Solar.fromDate(dateForLunar);
+        const lunar = solar.getLunar();
+
+        document.getElementById('main-title').innerText = `农历: ${lunar.getYearInChinese()}年 ${lunar.getMonthInChinese()}月${lunar.getDayInChinese()}日 ${getShichen(hour)}`;
+        document.getElementById('gregorian').innerText = inputDate.toLocaleString();
+        document.getElementById('lunar-date').innerText = `${lunar.getMonthInChinese()}月${lunar.getDayInChinese()}日`;
+        document.getElementById('yi').innerText = lunar.getDayYi().join('、');
+        document.getElementById('ji').innerText = lunar.getDayJi().join('、');
+        document.getElementById('bazi').innerText = lunar.getEightChar().toString();
+        document.getElementById('chong').innerText = `${lunar.getChong()} ${lunar.getSha()}`;
+        document.getElementById('gods').innerText = `喜:${lunar.getDayPositionXi()} 财:${lunar.getDayPositionCai()}`;
+        document.getElementById('astro').innerText = `${lunar.getJieQi() || '无'} / ${lunar.getXiu()}`;
+        document.getElementById('zhixing').innerText = lunar.getZhiXing();
+        document.getElementById('na-yin').innerText = `${lunar.getEightChar().getNaYin().join(' ')} / ${lunar.getTaiShen()}`;
+    }
+    calculate();
+</script>
+</body>
+</html>
