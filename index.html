@@ -65,7 +65,7 @@
         .label { font-size: 0.75em; color: #aaa; text-transform: uppercase; display: block; margin-bottom: 4px; }
         .val { font-weight: bold; color: #fff; display: block; }
         .desc { font-size: 0.7em; color: #888; font-style: italic; margin-top: 5px; display: block; }
-        #music-btn { font-size: 30px; cursor: pointer; position: absolute; right: 20px; top: 20px; }
+        #music-btn { font-size: 28px; cursor: pointer; position: absolute; right: 20px; top: 18px; user-select: none; }
 
         input {
             max-width: 100%;
@@ -93,19 +93,19 @@
 <div class="dashboard">
     <div class="header">
         <h2 id="main-title" style="color:var(--text-gold)">载入中...</h2>
-        <input type="datetime-local" id="timePicker" onchange="calculate()">
-        <div id="music-btn" onclick="toggleMusic()">^</div>
+        <input type="datetime-local" id="timePicker">
+        <div id="music-btn" onclick="toggleMusic()" title="播放音乐" aria-label="播放音乐">♪</div>
         <audio id="audio" loop><source src="https://github.com/noagrp/wannianli/raw/main/furelise.mp3" type="audio/mpeg"></audio>
     </div>
 
-    <div class="box"><span class="label">公历</span><span class="val" id="gregorian"></span><span class="desc">国际通用日期标准</span></div>
+    <div class="box"><span class="label">公历</span><span class="val" id="gregorian"></span><span class="desc">设备本地时间</span></div>
     <div class="box"><span class="label">农历</span><span class="val" id="lunar-date"></span><span class="desc">传统阴阳合历日期</span></div>
     <div class="box"><span class="label">宜</span><span class="val" id="yi"></span><span class="desc">今日适宜进行的活动</span></div>
     <div class="box"><span class="label">忌</span><span class="val" id="ji"></span><span class="desc">今日应当避免的事项</span></div>
-    <div class="box"><span class="label">八字</span><span class="val" id="bazi"></span><span class="desc">出生时刻的天干地支</span></div>
+    <div class="box"><span class="label">八字</span><span class="val" id="bazi"></span><span class="desc">年柱 · 月柱 · 日柱 · 时柱</span></div>
     <div class="box"><span class="label">冲煞</span><span class="val" id="chong"></span><span class="desc">今日属相相冲与方位禁忌</span></div>
-    <div class="box"><span class="label">吉神方位</span><span class="val" id="gods"></span><span class="desc">喜神与财神所在方向</span></div>
-    <div class="box"><span class="label">节气/星宿</span><span class="val" id="astro"></span><span class="desc">二十四节气与二十八星宿</span></div>
+    <div class="box"><span class="label">吉神方位</span><span class="val" id="gods"></span><span class="desc">喜神 · 财神 · 福神</span></div>
+    <div class="box"><span class="label">节气/星宿</span><span class="val" id="astro"></span><span class="desc">当前节气进程与二十八星宿</span></div>
     <div class="box"><span class="label">十二值星</span><span class="val" id="zhixing"></span><span class="desc">每日运势吉凶星值</span></div>
     <div class="box"><span class="label">纳音/胎神</span><span class="val" id="na-yin"></span><span class="desc">五行属性与胎神所在方位</span></div>
 </div>
@@ -176,41 +176,137 @@
     }
     animate();
 
-    function toggleMusic() {
-        const audio = document.getElementById('audio');
-        audio.paused ? audio.play() : audio.pause();
+    const audio = document.getElementById('audio');
+    const musicBtn = document.getElementById('music-btn');
+
+    function updateMusicButton() {
+        const playing = !audio.paused;
+        musicBtn.innerText = playing ? '♫' : '♪';
+        musicBtn.title = playing ? '暂停音乐' : '播放音乐';
+        musicBtn.setAttribute('aria-label', playing ? '暂停音乐' : '播放音乐');
     }
 
+    function toggleMusic() {
+        if (audio.paused) {
+            audio.play().catch(() => {});
+        } else {
+            audio.pause();
+        }
+    }
+
+    audio.addEventListener('play', updateMusicButton);
+    audio.addEventListener('pause', updateMusicButton);
+    audio.addEventListener('ended', updateMusicButton);
+    updateMusicButton();
+
     const picker = document.getElementById('timePicker');
-    picker.value = new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    let autoMode = true;
+
+    function toLocalPickerValue(date) {
+        const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+        return local.toISOString().slice(0, 16);
+    }
+
+    function syncPickerToNow() {
+        picker.value = toLocalPickerValue(new Date());
+    }
+
+    syncPickerToNow();
+
+    picker.addEventListener('change', () => {
+        autoMode = false;
+        calculate();
+    });
 
     function getShichen(hour) {
         const names = ['子时', '丑时', '寅时', '卯时', '辰时', '巳时', '午时', '未时', '申时', '酉时', '戌时', '亥时'];
         return names[Math.floor(((hour + 1) % 24) / 2)];
     }
 
-    function calculate() {
-        const inputDate = new Date(picker.value);
-        const hour = inputDate.getHours();
-        const dateForLunar = (hour >= 23) ? new Date(inputDate.getTime() + 86400000) : inputDate;
-        const solar = Solar.fromDate(dateForLunar);
-        const lunar = solar.getLunar();
-        const eightChar = lunar.getEightChar();
+    function setCalendarError(message) {
+        document.getElementById('main-title').innerText = message;
+        ['gregorian', 'lunar-date', 'yi', 'ji', 'bazi', 'chong', 'gods', 'astro', 'zhixing', 'na-yin'].forEach(id => {
+            document.getElementById(id).innerText = '加载失败';
+        });
+    }
 
-        document.getElementById('main-title').innerText = `农历: ${lunar.getYearInChinese()}年 ${lunar.getMonthInChinese()}月${lunar.getDayInChinese()}日 ${getShichen(hour)}`;
-        document.getElementById('gregorian').innerText = inputDate.toLocaleString();
-        document.getElementById('lunar-date').innerText = `${lunar.getMonthInChinese()}月${lunar.getDayInChinese()}日`;
-        document.getElementById('yi').innerText = lunar.getDayYi().join('、');
-        document.getElementById('ji').innerText = lunar.getDayJi().join('、');
-        document.getElementById('bazi').innerText = eightChar.toString();
-        document.getElementById('chong').innerText = `${lunar.getChong()} ${lunar.getSha()}`;
-        document.getElementById('gods').innerText = `喜:${lunar.getDayPositionXi()} 财:${lunar.getDayPositionCai()}`;
-        document.getElementById('astro').innerText = `${lunar.getJieQi() || '无'} / ${lunar.getXiu()}`;
-        document.getElementById('zhixing').innerText = lunar.getZhiXing();
-        document.getElementById('na-yin').innerText = `${eightChar.getYearNaYin()} ${eightChar.getMonthNaYin()} ${eightChar.getDayNaYin()} ${eightChar.getTimeNaYin()} / ${lunar.getDayPositionTai()}`;
+    function formatJieQi(lunar) {
+        try {
+            const exact = lunar.getJieQi();
+            const xiu = lunar.getXiu();
+            if (exact) return `${exact} / ${xiu}`;
+
+            const prev = lunar.getPrevJieQi ? lunar.getPrevJieQi() : null;
+            const next = lunar.getNextJieQi ? lunar.getNextJieQi() : null;
+
+            if (prev && next) {
+                const nextSolar = next.getSolar();
+                return `${prev.getName()}后 · 下个${next.getName()} ${nextSolar.getMonth()}/${nextSolar.getDay()} / ${xiu}`;
+            }
+            if (prev) return `${prev.getName()}后 / ${xiu}`;
+            if (next) {
+                const nextSolar = next.getSolar();
+                return `下个${next.getName()} ${nextSolar.getMonth()}/${nextSolar.getDay()} / ${xiu}`;
+            }
+            return xiu;
+        } catch (e) {
+            return lunar.getXiu();
+        }
+    }
+
+    function calculate() {
+        if (typeof Solar === 'undefined') {
+            setCalendarError('农历资料加载失败');
+            return;
+        }
+
+        try {
+            const inputDate = new Date(picker.value);
+            if (Number.isNaN(inputDate.getTime())) return;
+
+            const hour = inputDate.getHours();
+            const dateForLunar = new Date(inputDate);
+
+            // 本应用采用子初换日：23:00 起按农历次日计算。
+            if (hour >= 23) {
+                dateForLunar.setDate(dateForLunar.getDate() + 1);
+            }
+
+            const solar = Solar.fromDate(dateForLunar);
+            const lunar = solar.getLunar();
+            const eightChar = lunar.getEightChar();
+            const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || '本地时区';
+
+            document.getElementById('main-title').innerText = `农历: ${lunar.getYearInChinese()}年 ${lunar.getMonthInChinese()}月${lunar.getDayInChinese()}日 ${getShichen(hour)}`;
+            document.getElementById('gregorian').innerText = `${inputDate.toLocaleString('zh-CN', { hour12: false })} · ${timezone}`;
+            document.getElementById('lunar-date').innerText = `${lunar.getMonthInChinese()}月${lunar.getDayInChinese()}日`;
+            document.getElementById('yi').innerText = lunar.getDayYi().join('、') || '无';
+            document.getElementById('ji').innerText = lunar.getDayJi().join('、') || '无';
+            document.getElementById('bazi').innerText = `年:${eightChar.getYear()} 月:${eightChar.getMonth()} 日:${eightChar.getDay()} 时:${eightChar.getTime()}`;
+            document.getElementById('chong').innerText = `冲${lunar.getChong()} · 煞${lunar.getSha()}`;
+
+            const xi = lunar.getDayPositionXiDesc ? lunar.getDayPositionXiDesc() : lunar.getDayPositionXi();
+            const cai = lunar.getDayPositionCaiDesc ? lunar.getDayPositionCaiDesc() : lunar.getDayPositionCai();
+            const fu = lunar.getDayPositionFuDesc ? lunar.getDayPositionFuDesc() : lunar.getDayPositionFu();
+            document.getElementById('gods').innerText = `喜:${xi} 财:${cai} 福:${fu}`;
+
+            document.getElementById('astro').innerText = formatJieQi(lunar);
+            document.getElementById('zhixing').innerText = lunar.getZhiXing();
+            document.getElementById('na-yin').innerText = `${eightChar.getYearNaYin()} ${eightChar.getMonthNaYin()} ${eightChar.getDayNaYin()} ${eightChar.getTimeNaYin()} / ${lunar.getDayPositionTai()}`;
+        } catch (e) {
+            console.error(e);
+            setCalendarError('万年历计算失败');
+        }
     }
 
     calculate();
+
+    setInterval(() => {
+        if (autoMode) {
+            syncPickerToNow();
+            calculate();
+        }
+    }, 30000);
 </script>
 </body>
 </html>
