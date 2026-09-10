@@ -2,26 +2,88 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>万年历</title>
     <style>
         :root { --card-bg: rgba(20, 20, 20, 0.8); --text-gold: #d4af37; --border: #d4af37; }
-        
-        body { 
-            margin: 0; padding: 20px; font-family: 'Noto Serif SC', serif;
+
+        * { box-sizing: border-box; }
+
+        html, body {
+            width: 100%;
+            min-height: 100%;
+            margin: 0;
+            overflow-x: hidden;
+        }
+
+        body {
+            padding: 20px;
+            font-family: 'Noto Serif SC', serif;
             background-color: #0a0a0a;
-            min-height: 100vh; overflow-x: hidden;
+            min-height: 100dvh;
             color: var(--text-gold);
         }
-        #particleCanvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: -1; }
 
-        .dashboard { max-width: 800px; margin: auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
-        .box { background: var(--card-bg); backdrop-filter: blur(10px); border: 1px solid var(--border); padding: 15px; border-radius: 8px; box-shadow: 0 0 10px rgba(212, 175, 55, 0.2); }
-        .header { grid-column: 1 / -1; text-align: center; background: rgba(0, 0, 0, 0.9); border-bottom: 2px solid var(--border); padding: 20px; position: relative; }
+        #particleCanvas {
+            position: fixed;
+            inset: 0;
+            width: 100vw;
+            height: 100dvh;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .dashboard {
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px;
+        }
+
+        .box {
+            min-width: 0;
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(212, 175, 55, 0.2);
+            overflow-wrap: anywhere;
+        }
+
+        .header {
+            grid-column: 1 / -1;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.9);
+            border-bottom: 2px solid var(--border);
+            padding: 20px;
+            position: relative;
+        }
+
         .label { font-size: 0.75em; color: #aaa; text-transform: uppercase; display: block; margin-bottom: 4px; }
         .val { font-weight: bold; color: #fff; display: block; }
         .desc { font-size: 0.7em; color: #888; font-style: italic; margin-top: 5px; display: block; }
         #music-btn { font-size: 30px; cursor: pointer; position: absolute; right: 20px; top: 20px; }
-        input { background: #000; color: var(--text-gold); border: 1px solid var(--text-gold); padding: 5px; border-radius: 4px; }
+
+        input {
+            max-width: 100%;
+            background: #000;
+            color: var(--text-gold);
+            border: 1px solid var(--text-gold);
+            padding: 5px;
+            border-radius: 4px;
+        }
+
+        @media (max-width: 520px) {
+            body { padding: 10px; }
+            .dashboard { grid-template-columns: 1fr; gap: 10px; }
+            .header { padding: 16px 48px 16px 16px; }
+            .header h2 { font-size: 1.15rem; margin-top: 4px; }
+            #music-btn { right: 12px; top: 12px; }
+            .box { padding: 13px; }
+        }
     </style>
 </head>
 <body>
@@ -52,33 +114,61 @@
 <script>
     const canvas = document.getElementById('particleCanvas');
     const ctx = canvas.getContext('2d');
-    canvas.width = window.innerWidth; canvas.height = window.innerHeight;
     let particles = [];
     const mouse = { x: null, y: null };
 
+    function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        particles.forEach(p => {
+            p.x = Math.min(Math.max(p.x, 0), canvas.width);
+            p.y = Math.min(Math.max(p.y, 0), canvas.height);
+        });
+    }
+
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+    window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 100));
+
     window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
-    window.addEventListener('touchstart', e => { mouse.x = e.touches[0].clientX; mouse.y = e.touches[0].clientY; });
+    window.addEventListener('touchstart', e => {
+        if (e.touches.length) {
+            mouse.x = e.touches[0].clientX;
+            mouse.y = e.touches[0].clientY;
+        }
+    }, { passive: true });
 
     class Particle {
         constructor() {
-            this.x = Math.random() * canvas.width; this.y = Math.random() * canvas.height;
+            this.x = Math.random() * canvas.width;
+            this.y = Math.random() * canvas.height;
             this.size = Math.random() * 2 + 1;
-            this.vx = (Math.random() - 0.5) * 0.5; this.vy = (Math.random() - 0.5) * 0.5;
+            this.vx = (Math.random() - 0.5) * 0.5;
+            this.vy = (Math.random() - 0.5) * 0.5;
         }
         update() {
-            if (mouse.x) {
-                let dx = mouse.x - this.x; let dy = mouse.y - this.y;
-                let dist = Math.sqrt(dx*dx + dy*dy);
+            if (mouse.x !== null && mouse.y !== null) {
+                let dx = mouse.x - this.x;
+                let dy = mouse.y - this.y;
+                let dist = Math.sqrt(dx * dx + dy * dy);
                 if (dist < 200) { this.x += dx * 0.02; this.y += dy * 0.02; }
             }
-            this.x += this.vx; this.y += this.vy;
+            this.x += this.vx;
+            this.y += this.vy;
             if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
             if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
         }
-        draw() { ctx.fillStyle = 'rgba(212, 175, 55, 0.8)'; ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI*2); ctx.fill(); }
+        draw() {
+            ctx.fillStyle = 'rgba(212, 175, 55, 0.8)';
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+            ctx.fill();
+        }
     }
 
-    for(let i=0; i<100; i++) particles.push(new Particle());
+    for (let i = 0; i < 100; i++) particles.push(new Particle());
+
     function animate() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         particles.forEach(p => { p.update(); p.draw(); });
@@ -86,12 +176,16 @@
     }
     animate();
 
-    function toggleMusic() { const audio = document.getElementById("audio"); audio.paused ? audio.play() : audio.pause(); }
+    function toggleMusic() {
+        const audio = document.getElementById('audio');
+        audio.paused ? audio.play() : audio.pause();
+    }
+
     const picker = document.getElementById('timePicker');
     picker.value = new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 
     function getShichen(hour) {
-        const names = ["子时", "丑时", "寅时", "卯时", "辰时", "巳时", "午时", "未时", "申时", "酉时", "戌时", "亥时"];
+        const names = ['子时', '丑时', '寅时', '卯时', '辰时', '巳时', '午时', '未时', '申时', '酉时', '戌时', '亥时'];
         return names[Math.floor(((hour + 1) % 24) / 2)];
     }
 
@@ -101,19 +195,21 @@
         const dateForLunar = (hour >= 23) ? new Date(inputDate.getTime() + 86400000) : inputDate;
         const solar = Solar.fromDate(dateForLunar);
         const lunar = solar.getLunar();
+        const eightChar = lunar.getEightChar();
 
         document.getElementById('main-title').innerText = `农历: ${lunar.getYearInChinese()}年 ${lunar.getMonthInChinese()}月${lunar.getDayInChinese()}日 ${getShichen(hour)}`;
         document.getElementById('gregorian').innerText = inputDate.toLocaleString();
         document.getElementById('lunar-date').innerText = `${lunar.getMonthInChinese()}月${lunar.getDayInChinese()}日`;
         document.getElementById('yi').innerText = lunar.getDayYi().join('、');
         document.getElementById('ji').innerText = lunar.getDayJi().join('、');
-        document.getElementById('bazi').innerText = lunar.getEightChar().toString();
+        document.getElementById('bazi').innerText = eightChar.toString();
         document.getElementById('chong').innerText = `${lunar.getChong()} ${lunar.getSha()}`;
         document.getElementById('gods').innerText = `喜:${lunar.getDayPositionXi()} 财:${lunar.getDayPositionCai()}`;
         document.getElementById('astro').innerText = `${lunar.getJieQi() || '无'} / ${lunar.getXiu()}`;
         document.getElementById('zhixing').innerText = lunar.getZhiXing();
-        document.getElementById('na-yin').innerText = `${lunar.getEightChar().getNaYin().join(' ')} / ${lunar.getTaiShen()}`;
+        document.getElementById('na-yin').innerText = `${eightChar.getYearNaYin()} ${eightChar.getMonthNaYin()} ${eightChar.getDayNaYin()} ${eightChar.getTimeNaYin()} / ${lunar.getDayPositionTai()}`;
     }
+
     calculate();
 </script>
 </body>
