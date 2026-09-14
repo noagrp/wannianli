@@ -1,11 +1,12 @@
-const CACHE_NAME = 'wannianli-v3';
+const CACHE_NAME = 'wannianli-v4';
 const APP_SHELL = [
   './',
   './index.html',
-  './manifest.webmanifest?v=2',
-  './icon-192.png?v=2',
-  './icon-512.png?v=2',
-  './apple-touch-icon.png?v=2'
+  './manifest.webmanifest?v=4',
+  './favicon-32x32.png?v=4',
+  './icon-192.png?v=4',
+  './icon-512.png?v=4',
+  './apple-touch-icon.png?v=4'
 ];
 
 self.addEventListener('install', event => {
