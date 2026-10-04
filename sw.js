@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wannianli-v4';
+const CACHE_NAME = 'wannianli-v5';
 const APP_SHELL = [
   './',
   './index.html',
@@ -6,7 +6,8 @@ const APP_SHELL = [
   './favicon-32x32.png?v=4',
   './icon-192.png?v=4',
   './icon-512.png?v=4',
-  './apple-touch-icon.png?v=4'
+  './apple-touch-icon.png?v=4',
+  './vendor/lunar.js'
 ];
 
 self.addEventListener('install', event => {
