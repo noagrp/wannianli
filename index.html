@@ -19,19 +19,25 @@
         * { box-sizing: border-box; }
         html, body { width: 100%; min-height: 100%; margin: 0; overflow-x: hidden; }
         body { padding: 20px; font-family: 'Noto Serif SC', serif; background-color: #0a0a0a; min-height: 100dvh; color: var(--text-gold); }
+        .page { width:min(1220px,100%); margin:0 auto; }
         #particleCanvas { position: fixed; inset: 0; width: 100vw; height: 100dvh; pointer-events: none; z-index: -1; }
-        .dashboard { width: 100%; max-width: 800px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+        .dashboard { width: 100%; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; }
         .box { min-width: 0; background: var(--card-bg); backdrop-filter: blur(10px); border: 1px solid var(--border); padding: 15px; border-radius: 8px; box-shadow: 0 0 10px rgba(212, 175, 55, 0.2); overflow-wrap: anywhere; }
         .header { grid-column: 1 / -1; text-align: center; background: rgba(0, 0, 0, 0.9); border-bottom: 2px solid var(--border); padding: 20px; position: relative; }
         .label { font-size: 0.75em; color: #aaa; text-transform: uppercase; display: block; margin-bottom: 4px; }
         .val { font-weight: bold; color: #fff; display: block; }
         .desc { font-size: 0.7em; color: #888; font-style: italic; margin-top: 5px; display: block; }
         #music-btn { font-size: 28px; cursor: pointer; position: absolute; right: 20px; top: 18px; user-select: none; }
+        .back-link { position:absolute; right:20px; bottom:16px; color:#aaa; text-decoration:none; font-size:12px; }
+        .back-link:hover { color:var(--text-gold); }
+        .footer { display:flex; justify-content:center; align-items:center; gap:8px; margin-top:34px; padding-top:18px; border-top:1px solid rgba(212,175,55,.35); color:#888; font-size:12px; }
+        .footer a { color:inherit; text-decoration:none; }
+        .footer a:hover { color:var(--text-gold); }
         input { max-width: 100%; background: #000; color: var(--text-gold); border: 1px solid var(--text-gold); padding: 5px; border-radius: 4px; }
         @media (max-width: 520px) {
             body { padding: 10px; }
             .dashboard { grid-template-columns: 1fr; gap: 10px; }
-            .header { padding: 16px 48px 16px 16px; }
+            .header { padding: 16px 48px 46px 16px; }
             .header h2 { font-size: 1.15rem; margin-top: 4px; }
             #music-btn { right: 12px; top: 12px; }
             .box { padding: 13px; }
@@ -40,12 +46,14 @@
 </head>
 <body>
 <canvas id="particleCanvas"></canvas>
+<main class="page">
 <div class="dashboard">
     <div class="header">
         <h2 id="main-title" style="color:var(--text-gold)">载入中...</h2>
         <input type="datetime-local" id="timePicker">
         <div id="music-btn" onclick="toggleMusic()" title="播放音乐" aria-label="播放音乐">♪</div>
         <audio id="audio" loop><source src="./furelise.mp3" type="audio/mpeg"></audio>
+        <a class="back-link" href="https://noagrp.github.io/zhong/">返回 中</a>
     </div>
     <div class="box"><span class="label">公历</span><span class="val" id="gregorian"></span><span class="desc">设备本地时间</span></div>
     <div class="box"><span class="label">农历</span><span class="val" id="lunar-date"></span><span class="desc">传统阴阳合历日期</span></div>
@@ -62,6 +70,8 @@
     <div class="box"><span class="label">十二值星</span><span class="val" id="zhixing"></span><span class="desc">每日运势吉凶星值</span></div>
     <div class="box"><span class="label">纳音/胎神</span><span class="val" id="na-yin"></span><span class="desc">五行属性与胎神所在方位</span></div>
 </div>
+<footer class="footer"><a href="https://noagrp.github.io/home/">noagrp home</a><span>·</span><a href="https://noagrp.github.io/zhong/">中</a></footer>
+</main>
 <script src="https://cdn.jsdelivr.net/npm/lunar-javascript@1.7.7/lunar.js" onerror="this.onerror=null;this.src='./vendor/lunar.js';"></script>
 <script>
     if (typeof Solar === 'undefined') {
