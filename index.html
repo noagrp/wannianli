@@ -53,12 +53,21 @@
     <div class="box"><span class="label">忌</span><span class="val" id="ji"></span><span class="desc">今日应当避免的事项</span></div>
     <div class="box"><span class="label">八字</span><span class="val" id="bazi"></span><span class="desc">年柱 · 月柱 · 日柱 · 时柱</span></div>
     <div class="box"><span class="label">冲煞</span><span class="val" id="chong"></span><span class="desc">今日属相相冲与方位禁忌</span></div>
+    <div class="box"><span class="label">吉神宜趋</span><span class="val" id="jishen"></span><span class="desc">今日传统黄历所列吉神</span></div>
+    <div class="box"><span class="label">凶煞宜忌</span><span class="val" id="xiongsha"></span><span class="desc">今日传统黄历所列凶煞</span></div>
     <div class="box"><span class="label">吉神方位</span><span class="val" id="gods"></span><span class="desc">喜神 · 财神 · 福神</span></div>
+    <div class="box"><span class="label">值日天神</span><span class="val" id="tianshen"></span><span class="desc">十二天神 · 黄道 / 黑道 · 吉凶</span></div>
+    <div class="box"><span class="label">彭祖百忌</span><span class="val" id="pengzu"></span><span class="desc">按当日日干与地支所列传统禁忌</span></div>
     <div class="box"><span class="label">节气/星宿</span><span class="val" id="astro"></span><span class="desc">当前节气进程与二十八星宿</span></div>
     <div class="box"><span class="label">十二值星</span><span class="val" id="zhixing"></span><span class="desc">每日运势吉凶星值</span></div>
     <div class="box"><span class="label">纳音/胎神</span><span class="val" id="na-yin"></span><span class="desc">五行属性与胎神所在方位</span></div>
 </div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/lunar-javascript/1.7.4/lunar.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lunar-javascript@1.7.7/lunar.js" onerror="this.onerror=null;this.src='./vendor/lunar.js';"></script>
+<script>
+    if (typeof Solar === 'undefined') {
+        document.write('<script src="./vendor/lunar.js"><\/script>');
+    }
+</script>
 <script>
     const canvas = document.getElementById('particleCanvas');
     const ctx = canvas.getContext('2d');
@@ -155,7 +164,7 @@
 
     function setCalendarError(message) {
         document.getElementById('main-title').innerText = message;
-        ['gregorian', 'lunar-date', 'yi', 'ji', 'bazi', 'chong', 'gods', 'astro', 'zhixing', 'na-yin'].forEach(id => {
+        ['gregorian', 'lunar-date', 'yi', 'ji', 'bazi', 'chong', 'jishen', 'xiongsha', 'gods', 'tianshen', 'pengzu', 'astro', 'zhixing', 'na-yin'].forEach(id => {
             document.getElementById(id).innerText = '加载失败';
         });
     }
@@ -203,10 +212,23 @@
             document.getElementById('ji').innerText = lunar.getDayJi().join('、') || '无';
             document.getElementById('bazi').innerText = `年:${eightChar.getYear()} 月:${eightChar.getMonth()} 日:${eightChar.getDay()} 时:${eightChar.getTime()}`;
             document.getElementById('chong').innerText = `冲${lunar.getChong()} · 煞${lunar.getSha()}`;
+            const jiShen = lunar.getDayJiShen ? lunar.getDayJiShen() : [];
+            const xiongSha = lunar.getDayXiongSha ? lunar.getDayXiongSha() : [];
+            document.getElementById('jishen').innerText = jiShen.join('、') || '无';
+            document.getElementById('xiongsha').innerText = xiongSha.join('、') || '无';
             const xi = lunar.getDayPositionXiDesc ? lunar.getDayPositionXiDesc() : lunar.getDayPositionXi();
             const cai = lunar.getDayPositionCaiDesc ? lunar.getDayPositionCaiDesc() : lunar.getDayPositionCai();
             const fu = lunar.getDayPositionFuDesc ? lunar.getDayPositionFuDesc() : lunar.getDayPositionFu();
             document.getElementById('gods').innerText = `喜:${xi} 财:${cai} 福:${fu}`;
+            const tianShen = lunar.getDayTianShen ? lunar.getDayTianShen() : '';
+            const tianShenType = lunar.getDayTianShenType ? lunar.getDayTianShenType() : '';
+            const tianShenLuck = lunar.getDayTianShenLuck ? lunar.getDayTianShenLuck() : '';
+            document.getElementById('tianshen').innerText = [tianShen, tianShenType, tianShenLuck].filter(Boolean).join(' · ') || '无';
+            const pengzu = [
+                lunar.getPengZuGan ? lunar.getPengZuGan() : '',
+                lunar.getPengZuZhi ? lunar.getPengZuZhi() : ''
+            ].filter(Boolean);
+            document.getElementById('pengzu').innerText = pengzu.join(' · ') || '无';
             document.getElementById('astro').innerText = formatJieQi(lunar);
             document.getElementById('zhixing').innerText = lunar.getZhiXing();
             document.getElementById('na-yin').innerText = `${eightChar.getYearNaYin()} ${eightChar.getMonthNaYin()} ${eightChar.getDayNaYin()} ${eightChar.getTimeNaYin()} / ${lunar.getDayPositionTai()}`;
